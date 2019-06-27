@@ -1,12 +1,24 @@
 local M = {}
 _G["ina219"] = M
 
-local id = 0
+M.ADC_BUS = 0
+M.ADC_SHUNT = 1
 
-function M:setup(address, sda, scl)
-    self.address = address
-    -- initialize i2c, set pins
-    i2c.setup(id, sda, scl, i2c.SLOW)
+local id = 0
+local configuration = nil
+
+function to_int (s)
+    b1 = s:byte(1)
+    b2 = s:byte(2)
+    return bit.bor(bit.lshift(b1, 8), b2)
+end
+
+function to_sint (s)
+    n = to_int(s)
+    if n < 0x8000 then 
+        return n
+    end
+    return n - 0x10000
 end
 
 -- user defined function: read from reg_addr content of dev_addr
@@ -32,14 +44,22 @@ local function write_reg(dev_addr, reg_addr, value, len)
 end
 
 -- string of two decimal numbers
-local function reg_bytes(address, reg)
+local function get_bytes(address, reg)
     s = read_reg(address, reg, 2)
     return s:byte(1).." "..s:byte(2)
 end
 
+function M:setup(address, sda, scl)
+    self.address = address
+    -- initialize i2c, set pins
+    i2c.setup(id, sda, scl, i2c.SLOW)
+    self:read_config()
+end
+
 -- 2-byte string
 function M:read_config()
-    return read_reg(self.address, 0x00, 2)
+    configuration = to_int(read_reg(self.address, 0x00, 2))
+    return configuration
 end
 
 -- shunt voltage in millivolts, signed integer
@@ -71,18 +91,14 @@ function M:write_calibration(value)
     return write_reg(self.address, 0x05, value, 2)
 end
 
-local function to_int (s)
-    b1 = s:byte(1)
-    b2 = s:byte(2)
-    return bit.bor(bit.lshift(b1, 8), b2)
-end
-
-local function to_sint (s)
-    n = to_int(s)
-    if n < 0x8000 then 
-        return n
+function M:set_adc_res(which, mode)
+    mode = bit.band(0xFF, mode)
+    if which == M.ADC_BUS then
+        configuration = bit.bor(bit.band(0xF87F, configuration), bit.lshift(mode, 7))
+    elseif which == M.ADC_SHUNT then
+        configuration = bit.bor(bit.band(0xFF87, configuration), bit.lshift(mode, 3))
     end
-    return n - 0x10000
+    write_reg(self.address, 0x00, configuration, 2)
 end
-
+     
 return M
