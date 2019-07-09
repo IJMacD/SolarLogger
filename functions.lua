@@ -1,4 +1,3 @@
-
 function startMonitoring ()
     monitoring = true
     if deep_sleep then
@@ -21,9 +20,16 @@ function sendReading (callback)
     conn:connect(80, "104.28.14.146") -- ijmacd.com via cloudflare
     
     conn:on("connection", function(conn)
-        batt=string.format("%2.4f", getVoltage())
+        batt_v = getVoltage()
+        batt=string.format("%2.4f", batt_v)
         solar_v = ina219:read_bus() / 1000
         solar_c = ina219:read_current() / 1000
+
+        if solar_v < batt_v then
+            gpio.write(led_output, gpio.LOW)
+        else
+            gpio.write(led_output, gpio.HIGH)
+        end
 
         data="device="..node.chipid()
         .."&battery_voltage="..batt
@@ -62,7 +68,7 @@ function getVoltage()
         sum = sum + adc.read(0)
         tmr.delay(1000)
     end
-    return sum / 701.8
+    return sum / voltage_calibration
 end 
 
 function testConnection ()

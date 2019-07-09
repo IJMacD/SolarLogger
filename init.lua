@@ -1,12 +1,19 @@
 id  = 0
 sda = 2 -- GPIO4
 scl = 1 -- GPIO5
+led_output = 4 -- GPIO2
 
 address = 0x42
 
 deep_sleep = false
 wifi_polling = false
 monitoring = false
+
+if node.chipid() == 1714520 then
+    voltage_calibration = 701.8 -- 1714520
+else 
+    voltage_calibration = 813.7 -- 3422737
+end
 
 timer=tmr.create()
 sleepTmr=tmr.create()
@@ -19,6 +26,9 @@ if not wifi_polling then
         startMonitoring()
     end)
 end
+
+gpio.write(led_output, gpio.HIGH)
+gpio.mode(led_output, gpio.OUTPUT)
 
 ina219 = require("ina219")
 
